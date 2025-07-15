@@ -1,0 +1,49 @@
+Book Tickets: {
+  shape: sequence_diagram
+  u: User
+  ag: Api Gateway
+  bs: Booking Service
+  redis: Redis Cache
+  db: Database
+
+  Rt: Reserve Tickets {
+    u.rt -> ag.rt: reserve(ticketIds, userId)
+    ag.rt -> bs.rt: route request to booking service
+    Tickets Have Reserved: {
+      bs.rt -> redis.reserve: check tickets in Redis
+      redis.reserve -> bs.rt: return true
+      bs.rt -> ag.rt: response status code of 400
+      ag.rt -> u.rt: relay response
+    }
+    Tickets Available: {
+      bs.rt -> redis.rt: check tickets in Redis
+      redis.rt -> bs.rt: return false
+      bs.rt -> redis.rta: create a new entry in Redis using ticket Id with TTL of 10 minutes
+      redis.rta -> bs.rt: success
+      bs.rt -> db.rta: create a new booking record with status Pending
+      db.rta -> bs.rt: return bookingId
+      bs.rt -> ag.rt: response bookingId with status 201
+      ag.rt -> u.rt: relay response
+    }
+  }
+  Ct: Confirm Tickets {
+    u.ct -> ag.ct: confirmed(ticketIds, userId)
+    ag.ct -> bs.ct: route request to booking service
+    Expired Reservation: {
+      bs.ct -> redis.ct: check tickets in Redis
+      redis.ct -> bs.ct: tickets reservation expired
+      bs.ct -> db.cancel: update booking status to Cancelled
+      db.cancel -> bs.ct: return successful status
+      bs.ct -> ag.ct: response with status code 400
+      ag.ct -> u.ct: relay response
+    }
+    Reservation Available: {
+      bs.ct -> redis.cta: check tickets in Redis
+      redis.cta -> bs.ct: tickets exist
+      bs.ct -> db.cta: create a transaction to updaten the records in Ticket and Booking tables
+      db.cta -> bs.ct: return successful status
+      bs.ct -> ag.ct: response with 200 status code
+      ag.ct -> u.ct: relay response
+    }
+  }
+}

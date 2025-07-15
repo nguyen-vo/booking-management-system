@@ -1,0 +1,14 @@
+Get Event Details: {
+  shape: sequence_diagram
+  u: User
+  ag: Api Gateway
+  es: Event Service
+  db: Database
+
+  u.get -> ag.get: get(eventId)
+  ag.get -> es.get: route request to event service
+  es.get -> db.get: lookup event and related information
+  db.get -> es.get: return event details
+  es.get -> ag.get: response event details with status code 200
+  ag.get -> u.get: replay event service response
+}

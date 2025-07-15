@@ -1,0 +1,14 @@
+Search Events: {
+  shape: sequence_diagram
+  u: User
+  ag: Api Gateway
+  ses: Search Events Service
+  db: Database
+
+  u.get -> ag.get: search(name, date, location)
+  ag.get -> ses.get: route request to search events service
+  ses.get -> db.get: query event table using the provided condition
+  db.get -> ses.get: return a list of events with mininal event information
+  ses.get -> ag.get: response event list with status code 200
+  ag.get -> u.get: replay response
+}

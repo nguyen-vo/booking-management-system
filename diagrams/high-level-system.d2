@@ -1,0 +1,80 @@
+direction: right
+client: Client {
+  width: 100
+  style: {
+    border-radius: 10
+  }
+}
+ag: Api Gateway {
+  shape: rectangle
+  height: 500
+  width: 100
+  style: {
+    border-radius: 10
+  }
+}
+
+ss: Search Service {
+  shape: rectangle
+  width: 250
+  height: 80
+  style: {
+    border-radius: 10
+  }
+}
+es: Event Service {
+  shape: rectangle
+  width: 250
+  height: 80
+  style: {
+    border-radius: 10
+  }
+}
+bs: Booking Service {
+  shape: rectangle
+  width: 250
+  height: 80
+  style: {
+    border-radius: 10
+  }
+}
+pg: PostgreSQL {
+  shape: cylinder
+  height: 200
+  width: 150
+}
+redis: Redis Event {
+  shape: cylinder
+  height: 125
+  width: 150
+}
+tl: Redis Ticket Lock {
+  shape: cylinder
+  height: 125
+  width: 150
+}
+queue: Virtual Queue {
+  shape: queue
+}
+
+client <-> ag <-> ss <-> pg: {direction: right}
+
+ag <-> es: view(eventId): {direction: right}
+es <-> redis
+es <-> pg
+
+ag <-> bs: "reserve(ticketId,userId) \n confirmed(ticketId, userId)"
+bs <-> tl: "setTTL(ticketId, userId, ttlMs)"
+bs <-> pg
+ag -> queue: enqueue(eventId, userId)
+bs -> queue: "notify(eventId)" {
+  near: center-left
+  style: {
+    stroke-dash: 3
+  }
+}
+queue -> ag: "dequeue(eventId,userId)" {
+  style: {
+    stroke-dash: 3
+  }
+}

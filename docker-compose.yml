@@ -1,0 +1,85 @@
+
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=ticket_booking
+    container_name: postgres_db
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data      
+    networks:
+      - ticket_booking_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ticket_booking"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  ticket_booking_read_service: 
+    build:
+      context: ./ticket-booking-read-service
+      dockerfile: Dockerfile
+    container_name: ticket_booking_read_service
+    ports:
+      - 3000:3000
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_read_service:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=ticket_booking
+    volumes:
+      - ./ticket-booking-read-service:/app
+      - /app/node_modules
+    networks:
+      - ticket_booking_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+    command: npm run start:dev
+  redis_read_service:
+    image: redis:8.0.2-alpine3.21
+    container_name: redis_read_service
+    ports:
+      - 6379:6379
+    networks:
+      - ticket_booking_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  seeder:
+    build: ./database
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=ticket_booking
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    volumes:
+      - ./database:/app
+      - /app/node_modules
+    command: npm run seed
+    restart: "no"
+    networks:
+      - ticket_booking_network
+networks:
+  ticket_booking_network:
+    driver: bridge

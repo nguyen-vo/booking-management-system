@@ -1,0 +1,90 @@
+title: SQL TABLES {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 55
+  }
+}
+direction: down
+User: {
+  shape: sql_table
+  userId: string {constraint: [primary_key; unique]}
+  username: string NOT NULL {constraint: unique}
+  email: string NOT NULL {constraint: unique}
+}
+
+Event: {
+  shape: sql_table
+  eventId: string {constraint: [primary_key; unique]}
+  name: string NOT NULL
+  date: datetime NOT NULL
+  description: string
+  type: string - 'Concert', 'Sport', 'Theater'
+  status: string - 'Upcoming', 'Sold Out', 'Canceled', 'Ended'
+  locationId: string {constraint: foreign_key}
+}
+
+Performer: {
+  shape: sql_table
+  performerId: string {constraint: [primary_key; unique]}
+  name: string NOT NULL
+  description: string
+}
+
+EventPerformer: {
+  shape: sql_table
+  eventId: string {constraint: [foreign_key]}
+  performerId: string {constraint: [foreign_key]}
+}
+
+Location: {
+  shape: sql_table
+  locationId: string {constraint: [primary_key; unique]}
+  name: string NOT NULL
+  address: string NOT NULL
+  seatCapacity: int NOT NULL
+}
+
+Ticket: {
+  shape: sql_table
+  ticketId: string {constraint: [primary_key; unique]}
+  eventId: string NOT NULL {constraint: [foreign_key]}
+  seatNumber: string NOT NULL
+  price: double NOT NULL
+  status: string NOT NULL DEFAULT 'Available' // 'Available', 'Reserved', 'Sold'
+  bookingId: string {constraint: [foreign_key]}
+}
+
+Booking: {
+  shape: sql_table
+  bookingId: string {constraint: [primary_key; unique]}
+  userId: stirng {constraint: [foreign_key]}
+  bookingDate: datetime DEFAULT CURRENT_TIMESTAMP
+  totalAmount: double NOT NULL
+  status: string NOT NULL DEFAULT 'Pending' // 'Pending', 'Confirmed', 'Canceled'
+}
+
+Event.locationId -> Location.locationId: "" {
+  source-arrowhead: m
+  target-arrowhead: 1
+}
+EventPerformer.eventId -> Event.eventId: "" {
+  source-arrowhead: m
+  target-arrowhead: 1
+}
+EventPerformer.performerId -> Performer.performerId: "" {
+  source-arrowhead: m
+  target-arrowhead: 1
+}
+Ticket.eventId -> Event.eventId: "" {
+  source-arrowhead: m
+  target-arrowhead: 1
+}
+Ticket.bookingId -> Booking.bookingId: "" {
+  source-arrowhead: m
+  target-arrowhead: 1
+}
+Booking.userId -> User.userId: "" {
+  source-arrowhead: m
+  target-arrowhead: 1
+}
