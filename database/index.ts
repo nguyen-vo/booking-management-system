@@ -69,9 +69,22 @@ async function createTables() {
   `);
 
   await dataSource.query(`
+    CREATE TABLE IF NOT EXISTS bookings (
+      "bookingId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "userId" UUID REFERENCES users("userId"),
+      "bookingDate" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      status VARCHAR(50) DEFAULT 'Confirmed',
+      "totalAmount" DECIMAL(10,2) NOT NULL,
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await dataSource.query(`
     CREATE TABLE IF NOT EXISTS tickets (
       "ticketId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       "eventId" UUID REFERENCES events("eventId") ON DELETE CASCADE,
+      "bookingId" UUID REFERENCES bookings("bookingId") ON DELETE SET NULL,
       "seatNumber" VARCHAR(50) NOT NULL,
       price DECIMAL(10,2) NOT NULL,
       status VARCHAR(50) DEFAULT 'Available' CHECK (status IN ('Available', 'Reserved', 'Sold')),
@@ -80,18 +93,6 @@ async function createTables() {
     );
   `);
 
-  await dataSource.query(`
-    CREATE TABLE IF NOT EXISTS bookings (
-      "bookingId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      "userId" UUID REFERENCES users("userId"),
-      "ticketId" UUID REFERENCES tickets("ticketId"),
-      "bookingDate" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      status VARCHAR(50) DEFAULT 'Confirmed',
-      "totalAmount" DECIMAL(10,2) NOT NULL,
-      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
 }
 
 async function checkDataExists() {

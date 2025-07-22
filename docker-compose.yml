@@ -18,11 +18,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-  ticket_booking_read_service: 
+  search_service: 
     build:
-      context: ./ticket-booking-read-service
+      context: ./search-service
       dockerfile: Dockerfile
-    container_name: ticket_booking_read_service
+    container_name: search-service
     ports:
       - 3000:3000
     depends_on:
@@ -38,12 +38,44 @@ services:
       - DB_PASSWORD=password
       - DB_NAME=ticket_booking
     volumes:
-      - ./ticket-booking-read-service:/app
+      - ./search-service:/app
       - /app/node_modules
     networks:
       - ticket_booking_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+    command: npm run start:dev
+  booking_management_service:
+    build:
+      context: ./booking-management-service
+      dockerfile: Dockerfile
+    container_name: booking-management-service
+    ports:
+      - 3001:3000
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_write_service:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=ticket_booking
+      - REDIS_HOST=redis_write_service
+      - REDIS_PORT=6379
+    volumes:
+      - ./booking-management-service:/app
+      - /app/node_modules
+    networks:
+      - ticket_booking_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 60s
       timeout: 30s
       retries: 3
@@ -56,6 +88,20 @@ services:
     networks:
       - ticket_booking_network
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  redis_write_service:
+    image: redis:8.0.2-alpine3.21
+    container_name: redis_write_service
+    ports:
+      - 6380:6379
+    networks:
+      - ticket_booking_network
+    restart: always
+    command: redis-server --notify-keyspace-events Ex
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
