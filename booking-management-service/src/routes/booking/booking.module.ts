@@ -5,21 +5,47 @@ import { CreateReservationCommandHandler } from './application/commands/create-r
 import { ConfirmReservationCommandHandler } from './application/commands/confirm-reservation/confirm-reservation.command.handler';
 import { OrmReservationModule } from './infrastructures/reservation.infrastructure.module';
 import { ReservationExpiredEventHandler } from './application/events/reservation-expired.event-handler';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 
 @Module({
   imports: [
-    RedisSubscriberModule.forFeature({
-      pattern: '__keyevent@*__:expired',
-      eventType: 'expired',
-      eventName: 'reservation.expired',
-      keyPrefix: 'booking_management_service:',
-    }),
+    OrmReservationModule,
+    ClientsModule.register([
+      {
+        name: 'BOOKING_SERVICE',
+        transport: Transport.KAFKA,
+        options: {
+          client: {
+            clientId: 'booking-management-service',
+            brokers: [process.env.KAFKA_BROKER || 'kafka:29092'],
+            retry: {
+              initialRetryTime: 100,
+              retries: 8,
+            },
+          },
+          consumer: {
+            groupId: 'booking-consumer-group',
+            retry: {
+              initialRetryTime: 100,
+              retries: 8,
+            },
+          },
+          producer: {
+            retry: {
+              initialRetryTime: 100,
+              retries: 8,
+            },
+          },
+        },
+      },
+    ]),
   ],
-  controllers: [
-    //controller...
-  ],
+  controllers: [BookingController],
   providers: [
-    //provides...
+    BookingService,
+    CreateReservationCommandHandler,
+    ConfirmReservationCommandHandler,
+    ReservationExpiredEventHandler,
   ],
   exports: [BookingService],
 })

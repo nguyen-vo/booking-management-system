@@ -25,8 +25,6 @@ async function createTables() {
   `);
 
   await dataSource.query(`
-    DROP TYPE IF EXISTS event_type_enum CASCADE;
-    CREATE TYPE event_type_enum AS ENUM ('Concert', 'Sports', 'Theater', 'Festival');
     CREATE TABLE IF NOT EXISTS performers (
       "performerId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name VARCHAR(255) NOT NULL,
@@ -37,12 +35,15 @@ async function createTables() {
   `);
 
   await dataSource.query(`
+    DROP TYPE IF EXISTS event_type_enum CASCADE;
+    CREATE TYPE event_type_enum AS ENUM ('Concert', 'Sports', 'Theater', 'Festival');
   CREATE TABLE IF NOT EXISTS events (
     "eventId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     date TIMESTAMP NOT NULL,
     description TEXT,
     type event_type_enum NOT NULL,
+    "isPopular" BOOLEAN DEFAULT FALSE,
     status VARCHAR(50) NOT NULL DEFAULT 'Upcoming' CHECK (status IN ('Upcoming', 'Ongoing', 'Completed')),
     "locationId" UUID REFERENCES locations("locationId"),
     "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -92,7 +93,6 @@ async function createTables() {
       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
-
 }
 
 async function checkDataExists() {
@@ -153,13 +153,13 @@ async function seed() {
       RETURNING "performerId", name;
     `);
     const eventResult = await dataSource.query<Array<{ eventId: string }>>(`
-      INSERT INTO events (name, date, description, type, status, "locationId") VALUES
-      ('Taylor Swift - Eras Tour', '${faker.date.future({ years: 1 }).toISOString()}', 'Experience the magic of Taylor Swift''s Eras Tour', 'Concert', 'Upcoming', '${locationResult[0].locationId}'),
-      ('Ed Sheeran Live', '${faker.date.future({ years: 1 }).toISOString()}', 'An intimate evening with Ed Sheeran', 'Concert', 'Upcoming', '${locationResult[1].locationId}'),
-      ('Lakers vs Bulls', '${faker.date.future({ years: 1 }).toISOString()}', 'NBA regular season game', 'Sports', 'Upcoming', '${locationResult[0].locationId}'),
-      ('Hamilton', '${faker.date.future({ years: 1 }).toISOString()}', 'The hit Broadway musical about Alexander Hamilton', 'Theater', 'Upcoming', '${locationResult[2].locationId}'),
-      ('The Lion King', '${faker.date.future({ years: 1 }).toISOString()}', 'Disney''s award-winning musical', 'Theater', 'Upcoming', '${locationResult[2].locationId}'),
-      ('Red Rocks Summer Concert', '${faker.date.future({ years: 1 }).toISOString()}', 'Independence Day celebration concert', 'Concert', 'Upcoming', '${locationResult[3].locationId}')
+      INSERT INTO events (name, date, description, type, status, "locationId", "isPopular") VALUES
+      ('Taylor Swift - Eras Tour', '${faker.date.future({ years: 1 }).toISOString()}', 'Experience the magic of Taylor Swift''s Eras Tour', 'Concert', 'Upcoming', '${locationResult[0].locationId}', true),
+      ('Ed Sheeran Live', '${faker.date.future({ years: 1 }).toISOString()}', 'An intimate evening with Ed Sheeran', 'Concert', 'Upcoming', '${locationResult[1].locationId}', true),
+      ('Lakers vs Bulls', '${faker.date.future({ years: 1 }).toISOString()}', 'NBA regular season game', 'Sports', 'Upcoming', '${locationResult[0].locationId}', true),
+      ('Hamilton', '${faker.date.future({ years: 1 }).toISOString()}', 'The hit Broadway musical about Alexander Hamilton', 'Theater', 'Upcoming', '${locationResult[2].locationId}', false),
+      ('The Lion King', '${faker.date.future({ years: 1 }).toISOString()}', 'Disney''s award-winning musical', 'Theater', 'Upcoming', '${locationResult[2].locationId}', false),
+      ('Red Rocks Summer Concert', '${faker.date.future({ years: 1 }).toISOString()}', 'Independence Day celebration concert', 'Concert', 'Upcoming', '${locationResult[3].locationId}', false)
       RETURNING "eventId", name;
     `);
     await dataSource.query(`

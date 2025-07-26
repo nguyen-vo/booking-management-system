@@ -11,4 +11,5 @@ export class Event {
   public ticketsAvailable: number;
   public location: Location;
   public performers: Array<Performer>;
+  public isPopular?: boolean;
 }

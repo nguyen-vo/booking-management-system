@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Booking } from './booking.entity';
+import { Event } from './event.entity';
 
 @Entity('tickets')
 export class Ticket {
@@ -28,4 +29,8 @@ export class Ticket {
 
   @Column({ type: 'uuid', nullable: true })
   bookingId?: string;
+
+  @ManyToOne(() => Event, (event) => event.tickets)
+  @JoinColumn({ name: 'eventId' })
+  event: Event;
 }

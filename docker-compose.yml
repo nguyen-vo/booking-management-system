@@ -60,6 +60,8 @@ services:
         condition: service_healthy
       redis_write_service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       - NODE_ENV=development
       - DB_HOST=postgres_db
@@ -69,6 +71,7 @@ services:
       - DB_NAME=ticket_booking
       - REDIS_HOST=redis_write_service
       - REDIS_PORT=6379
+      - KAFKA_BROKER=kafka:29092
     volumes:
       - ./booking-management-service:/app
       - /app/node_modules
@@ -107,6 +110,59 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafka-admin-ui
+    restart: "no"
+    ports:
+      - "9000:9000"
+    networks:
+      - ticket_booking_network
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:29092"
+    depends_on:
+      - "kafka"
+  kafka:
+    image: obsidiandynamics/kafka
+    container_name: kafka
+    restart: "no"
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+    networks:
+      - ticket_booking_network
+    environment:
+      KAFKA_LISTENERS: "INTERNAL://:29092,EXTERNAL://:9092"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT: "6000"
+      KAFKA_RESTART_ATTEMPTS: "10"
+      KAFKA_RESTART_DELAY: "5"
+      ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: "0"
+    
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "kafka:29092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-init:
+    image: obsidiandynamics/kafka
+    container_name: kafka-init
+    networks:
+      - ticket_booking_network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: |
+      bash -c "
+      echo 'Kafka is ready! Creating topics...'
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --topic reservation_confirmed --partitions 10 --replication-factor 1
+      echo 'Topics created successfully!'
+      "
+    restart: "no"
   seeder:
     build: ./database
     environment:

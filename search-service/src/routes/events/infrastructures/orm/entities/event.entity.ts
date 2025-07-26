@@ -61,4 +61,7 @@ export class Event {
     },
   })
   performers: Performer[];
+
+  @Column({ type: 'boolean', default: false })
+  isPopular?: boolean;
 }
