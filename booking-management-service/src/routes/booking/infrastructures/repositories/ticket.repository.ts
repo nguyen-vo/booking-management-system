@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TicketRepository } from '../../application/ports/ticket.repository';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Ticket } from '../entities/ticket.entity';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -11,7 +11,7 @@ import { Reservation } from '../../domain/reservation.entity';
 
 @Injectable()
 export class CompositeTicketRepository implements TicketRepository {
-  private static readonly ttl = 60 * 1000; //10 *
+  private static readonly ttl = 10 * 60 * 1000;
   constructor(
     @Inject(CACHE_MANAGER) private cacheStore: Cache,
     @InjectRepository(Ticket) private ticketRepository: Repository<Ticket>,
@@ -43,6 +43,13 @@ export class CompositeTicketRepository implements TicketRepository {
       });
     }
     await this.cacheStore.mset(items);
+    const cachedResults = await this.cacheStore.mget<LockItem>(ticketIds);
+    Logger.debug(
+      `Tickets locked: ${JSON.stringify(cachedResults, (key, value: unknown) => {
+        if (value === undefined) return 'undefined';
+        return value;
+      })}`,
+    );
   }
   async areAvailable(
     ticketIds: string[],
@@ -50,14 +57,44 @@ export class CompositeTicketRepository implements TicketRepository {
   ): Promise<{ areAvailable: boolean; unavailableTicketIds: string[] | undefined }> {
     Logger.debug(`Checking availability for tickets: ${ticketIds.join(', ')} for user: ${userId}`);
     const cachedResults = await this.cacheStore.mget<LockItem>(ticketIds);
-    const unavailableTickets = cachedResults?.every((item) => item !== undefined);
+    const unavailableTickets = cachedResults?.some((item) => {
+      return item !== undefined;
+    });
+    Logger.debug(
+      `Cached Results: ${JSON.stringify(cachedResults, (key, value: unknown) => {
+        if (value === undefined) return 'undefined';
+        return value;
+      })}`,
+    );
     if (unavailableTickets) {
+      Logger.debug(
+        `Tickets are not available, existing locks found ${JSON.stringify(cachedResults)}, unavailable tickets: ${unavailableTickets}`,
+      );
       const unavailableTicketIds = cachedResults.map((result) => result?.ticketId).filter((id) => id !== undefined);
       return {
         areAvailable: false,
         unavailableTicketIds: unavailableTicketIds.length > 0 ? unavailableTicketIds : undefined,
       };
     }
+    const tickets = await this.ticketRepository.find({
+      where: {
+        ticketId: In(ticketIds),
+        status: 'Available',
+      },
+    });
+    const foundTickets = tickets.map((ticket) => ticket.ticketId);
+    const availableTickets = tickets.length;
+    if (availableTickets === 0 || availableTickets < ticketIds.length) {
+      Logger.debug(`Tickets are not available, found ${availableTickets} out of ${ticketIds.length}`);
+      Logger.debug(`Found tickets: ${foundTickets.join(', ')}`);
+      const unavailableTicketIds = ticketIds.filter((id) => !foundTickets.includes(id));
+      return {
+        areAvailable: false,
+        unavailableTicketIds: unavailableTicketIds.length > 0 ? unavailableTicketIds : undefined,
+      };
+    }
+    Logger.debug(`Tickets are available, found ${availableTickets} out of ${ticketIds.length}`);
+    Logger.debug(`Found tickets: ${foundTickets.join(', ')}`);
     return { areAvailable: true, unavailableTicketIds: undefined };
   }
 

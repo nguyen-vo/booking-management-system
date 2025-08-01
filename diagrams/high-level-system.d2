@@ -39,25 +39,39 @@ bs: Booking Service {
   }
 }
 pg: PostgreSQL {
-  shape: cylinder
-  height: 200
-  width: 150
+  shape:cylinder
+  height: 100
+  width: 100
 }
-redis: Redis Event {
-  shape: cylinder
-  height: 125
-  width: 150
+redis: Redis Cache {
+  shape:cylinder
+  height: 100
+  width: 100
 }
 tl: Redis Ticket Lock {
-  shape: cylinder
-  height: 125
-  width: 150
-}
-queue: Virtual Queue {
-  shape: queue
+  shape:cylinder
+  height: 100
+  width: 100
 }
 
-client <-> ag <-> ss <-> pg: {direction: right}
+ess: elasticsearch {
+  shape: square
+  height: 100
+  width: 100
+}
+queue: Virtual Message Queue {
+  shape: queue
+  height: 100
+  width: 150
+}
+
+client <-> ag <-> ss <-> ess: {direction: right}
+pg -> ess: "cdc change" {
+  near: center-left
+  style: {
+    stroke-dash: 3
+  }
+}
 
 ag <-> es: view(eventId): {direction: right}
 es <-> redis
@@ -68,7 +82,6 @@ bs <-> tl: "setTTL(ticketId, userId, ttlMs)"
 bs <-> pg
 ag -> queue: enqueue(eventId, userId)
 bs -> queue: "notify(eventId)" {
-  near: center-left
   style: {
     stroke-dash: 3
   }

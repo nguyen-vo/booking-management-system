@@ -5,6 +5,7 @@ import { Booking } from '../entities/booking.entity';
 import { Ticket } from '../entities/ticket.entity';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class OrmCreateReservationRepository implements CreateReservationRepository {
@@ -29,7 +30,31 @@ export class OrmCreateReservationRepository implements CreateReservationReposito
     booking.bookingDate = new Date();
     booking.userId = userId;
     booking.totalAmount = amount;
+    booking.bookingReference = this.getBookingReference(userId, ticketIds);
     const createdBooking = await this.bookingRepository.save(booking);
     return createdBooking.bookingId;
+  }
+
+  private getBookingReference(userId: UserId, ticketIds: string[]): string {
+    const hash = createHash('sha256')
+      .update(`${userId}-${ticketIds.join('-')}`)
+      .digest('hex');
+    return `Ref-${hash}`;
+  }
+
+  async hasExistingReservation(userId: UserId, ticketIds: string[]): Promise<{ exists: boolean; bookingId?: string }> {
+    Logger.debug(`Checking for existing reservation for user ${userId} with ticket IDs ${ticketIds.join(', ')}`);
+    const existingBooking = await this.bookingRepository
+      .createQueryBuilder('booking')
+      .addSelect('booking.bookingId')
+      .where('booking.userId = :userId', { userId })
+      .andWhere('booking.status = :status', { status: 'Pending' })
+      .andWhere('booking.bookingReference = :bookingReference', {
+        bookingReference: this.getBookingReference(userId, ticketIds),
+      })
+      .getOne();
+    const hasReservation = !!existingBooking;
+    Logger.debug(`Existing reservation found: ${hasReservation}`);
+    return { exists: hasReservation, bookingId: existingBooking?.bookingId };
   }
 }

@@ -2,6 +2,7 @@ import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { FindAnEventQuery } from './find-an-event.query';
 import { EventResponseDto } from 'src/routes/events/presenter/dto/event-response.dto';
 import { FindAnEventRepository } from '../../ports/find-an-event.repository';
+import { NotFoundException } from '@nestjs/common';
 
 @QueryHandler(FindAnEventQuery)
 export class FindAnEventQueryHandler implements IQueryHandler<FindAnEventQuery, EventResponseDto> {
@@ -10,7 +11,7 @@ export class FindAnEventQueryHandler implements IQueryHandler<FindAnEventQuery, 
   async execute(query: FindAnEventQuery): Promise<EventResponseDto> {
     const event = await this.findAnEventRepository.findById(query.eventId);
     if (!event) {
-      throw new Error(`Event with ID ${query.eventId} not found`);
+      throw new NotFoundException(`Event with ID ${query.eventId} not found`);
     }
 
     return {

@@ -13,6 +13,10 @@ export class CreateReservationCommandHandler implements ICommandHandler<CreateRe
   ) {}
   async execute(command: CreateReservationCommand) {
     const { userId, ticketIds } = command;
+    const { exists, bookingId } = await this.createReservationRepository.hasExistingReservation(userId, ticketIds);
+    if (exists) {
+      return { reservationId: bookingId, userId, ticketIds };
+    }
     Logger.debug(`Creating reservation for user ${userId} with tickets ${ticketIds.join(', ')}`);
     const { areAvailable, unavailableTicketIds } = await this.ticketRepository.areAvailable(ticketIds, userId);
     if (!areAvailable) {
@@ -26,14 +30,8 @@ export class CreateReservationCommandHandler implements ICommandHandler<CreateRe
   private async createReservation(userId: string, ticketIds: string[]): Promise<string | null> {
     let reservationId: string | null = null;
     try {
-      const areAvailable = await this.ticketRepository.areAvailable(ticketIds, userId);
-      if (!areAvailable.areAvailable) {
-        Logger.warn(`Tickets are not available for user ${userId}: ${areAvailable.unavailableTicketIds?.join(', ')}`);
-        throw new UnavailableTicketException(areAvailable.unavailableTicketIds);
-      }
       await this.ticketRepository.lockAll(ticketIds, userId);
       Logger.debug(`Tickets locked for user ${userId}. Creating reservation.`);
-
       reservationId = await this.createReservationRepository.createReservation(userId, ticketIds);
       Logger.debug(`Reservation created with ID ${reservationId} for user ${userId}`);
 

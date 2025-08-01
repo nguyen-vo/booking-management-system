@@ -76,6 +76,7 @@ async function createTables() {
       "bookingDate" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       status VARCHAR(50) DEFAULT 'Confirmed',
       "totalAmount" DECIMAL(10,2) NOT NULL,
+      "bookingReference" VARCHAR(255) NOT NULL,
       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );

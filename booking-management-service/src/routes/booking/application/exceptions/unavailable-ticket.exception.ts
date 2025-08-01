@@ -1,6 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 
-export class UnavailableTicketException extends BadRequestException {
+export class UnavailableTicketException extends ForbiddenException {
   details: Record<string, any>;
 
   constructor(ticketIds: string[] = []) {

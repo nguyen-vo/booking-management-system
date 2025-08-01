@@ -30,4 +30,7 @@ export class Booking {
 
   @OneToMany(() => Ticket, (ticket) => ticket.booking)
   tickets: Ticket[];
+
+  @Column({ type: 'varchar', length: 255, nullable: false })
+  bookingReference: string;
 }

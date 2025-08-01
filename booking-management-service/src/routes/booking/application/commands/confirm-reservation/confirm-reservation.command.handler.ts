@@ -3,9 +3,10 @@ import { ConfirmReservationCommand } from './confirm-reservation.command';
 import { TicketRepository } from '../../ports/ticket.repository';
 import { ConfirmReservationRepository } from '../../ports/confirm-reservation.repository';
 import { ReservationExpiredException } from '../../exceptions/reservation-expired.exception';
-import { Inject, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 import { EventRepository } from '../../ports/event.repository';
+import { Reservation } from 'src/routes/booking/domain/reservation.entity';
 
 @CommandHandler(ConfirmReservationCommand)
 export class ConfirmReservationCommandHandler implements ICommandHandler<ConfirmReservationCommand> {
@@ -19,20 +20,15 @@ export class ConfirmReservationCommandHandler implements ICommandHandler<Confirm
     const { reservationId } = command;
     const booking = await this.confirmReservationRepository.getReservation(reservationId);
     if (!booking) {
-      throw new NotFoundException(`Booking with ID ${reservationId} not found`);
+      await this.handleExpiredReservation(reservationId);
     }
-    const { userId, ticketIds } = booking;
-    const { areExpired, expiredTicketIds } = await this.ticketRepository.areExpired(ticketIds, userId);
-    if (areExpired) {
-      await this.handleExpiredReservation(reservationId, expiredTicketIds);
-    } else {
-      return this.handleConfirmedReservation(userId, reservationId, ticketIds);
-    }
+    const { userId, ticketIds } = booking as Reservation;
+    return this.handleConfirmedReservation(userId, reservationId, ticketIds);
   }
 
-  async handleExpiredReservation(reservationId: string, expiredTicketIds: string[] = []) {
+  async handleExpiredReservation(reservationId: string) {
     await this.confirmReservationRepository.updateBookingStatus(reservationId, 'Canceled');
-    throw new ReservationExpiredException(expiredTicketIds);
+    throw new ReservationExpiredException();
   }
 
   async handleConfirmedReservation(userId: string, reservationId: string, ticketIds: string[]) {
