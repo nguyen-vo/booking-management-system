@@ -183,7 +183,7 @@ async function seed() {
       INSERT INTO users (username, email) VALUES ${userValues}
     `);
     for (const event of eventResult) {
-      const ticketCount = 100; // Fixed number for simplicity
+      const ticketCount = 10000;
       const ticketValues: Array<string> = [];
 
       for (let i = 1; i <= ticketCount; i++) {
@@ -191,7 +191,7 @@ async function seed() {
           faker.string.alpha({ length: 1, casing: 'upper' }) +
           faker.string.numeric({ allowLeadingZeros: true, length: 3 });
         const price = faker.number.float({ min: 20, max: 200 }).toFixed(2);
-        const status = Math.random() > 0.9 ? 'Sold' : 'Available';
+        const status = 'Available';
         console.log(
           `('${event.eventId}', '${seatNumber}', ${price}, '${status}')`,
         );

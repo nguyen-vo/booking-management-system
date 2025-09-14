@@ -20,7 +20,7 @@ async function bootstrap() {
     }),
   );
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api/booking');
 
   const config = new DocumentBuilder()
     .setTitle('Booking Management Service')
@@ -32,8 +32,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/spec', app, documentFactory);
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/api`);
+  const address = process.env.BIND_ADDRESS || '0.0.0.0';
+  await app.listen(port, address);
+  console.log(`Application is running on: http://${address}:${port}/api`);
 }
 bootstrap().catch((err) => {
   console.error(err);

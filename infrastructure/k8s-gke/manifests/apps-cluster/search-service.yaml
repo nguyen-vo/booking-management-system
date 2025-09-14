@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-service
+  namespace: app-services
+  labels:
+    app: search-service
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: search-service
+  template:
+    metadata:
+      labels:
+        app: search-service
+        tier: application
+    spec:
+      containers:
+        - name: search-service
+          image: us-east1-docker.pkg.dev/ticket-booking-471523/ticket-booking-repo/search-service:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: 'production'
+            - name: DB_HOST
+              value: 'data-cluster-postgres'
+            - name: DB_PORT
+              value: '5432'
+            - name: DB_USERNAME
+              value: 'postgres'
+            - name: DB_PASSWORD
+              value: 'password'
+            - name: DB_NAME
+              value: 'ticket_booking'
+            - name: REDIS_READ_HOST
+              value: 'data-cluster-redis-read'
+            - name: REDIS_READ_PORT
+              value: '6379'
+            - name: ELASTICSEARCH_HOST
+              value: 'data-cluster-elasticsearch'
+            - name: ELASTICSEARCH_PORT
+              value: '9200'
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /api/search/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/search/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      nodeSelector:
+        cluster-type: apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-service
+  namespace: app-services
+  labels:
+    app: search-service
+spec:
+  selector:
+    app: search-service
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: search-service-hpa
+  namespace: app-services
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: search-service
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

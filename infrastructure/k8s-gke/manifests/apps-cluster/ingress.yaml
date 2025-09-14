@@ -1,0 +1,81 @@
+# NGINX Ingress Controller
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    name: ingress-nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticket-booking-ingress
+  namespace: app-services
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: 'true'
+    nginx.ingress.kubernetes.io/upstream-hash-by: '$request_uri'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+    nginx.ingress.kubernetes.io/websocket-services: 'queue-service'
+    cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # Search Service Routes
+          - path: /api/search
+            pathType: Prefix
+            backend:
+              service:
+                name: search-service
+                port:
+                  number: 3000
+          # Booking Management Service Routes
+          - path: /api/booking
+            pathType: Prefix
+            backend:
+              service:
+                name: booking-management-service
+                port:
+                  number: 3001
+          # Queue Service HTTP Routes
+          - path: /api/queue
+            pathType: Prefix
+            backend:
+              service:
+                name: queue-service
+                port:
+                  number: 3002
+          # Queue Service WebSocket Routes
+          - path: /api/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: queue-service
+                port:
+                  number: 3002
+---
+# Service to expose the ingress controller
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller-loadbalancer
+  namespace: ingress-nginx
+  annotations:
+    cloud.google.com/load-balancer-type: 'External'
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/component: controller
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP

@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-seeder
+  namespace: data-services
+  labels:
+    app: database-seeder
+    tier: initialization
+spec:
+  template:
+    metadata:
+      labels:
+        app: database-seeder
+        tier: initialization
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seeder
+          image: us-east1-docker.pkg.dev/ticket-booking-471523/ticket-booking-repo/database-seeder:latest
+          env:
+            - name: NODE_ENV
+              value: 'development'
+            - name: DB_HOST
+              value: 'postgres-db'
+            - name: DB_PORT
+              value: '5432'
+            - name: DB_USERNAME
+              value: 'postgres'
+            - name: DB_PASSWORD
+              value: 'password'
+            - name: DB_NAME
+              value: 'ticket_booking'
+          command: ['npm', 'run', 'seed']
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      nodeSelector:
+        cluster-type: data
+  backoffLimit: 3

@@ -1,0 +1,213 @@
+# Redis Read Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-read
+  namespace: data-services
+  labels:
+    app: redis-read
+    tier: cache
+    redis-type: read
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-read
+  template:
+    metadata:
+      labels:
+        app: redis-read
+        tier: cache
+        redis-type: read
+    spec:
+      containers:
+        - name: redis
+          image: redis:8.0.2-alpine3.21
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      nodeSelector:
+        cluster-type: data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-read-service
+  namespace: data-services
+  labels:
+    app: redis-read
+  annotations:
+    cloud.google.com/load-balancer-type: 'Internal'
+spec:
+  selector:
+    app: redis-read
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  type: LoadBalancer
+---
+# Redis Write Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-write
+  namespace: data-services
+  labels:
+    app: redis-write
+    tier: cache
+    redis-type: write
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-write
+  template:
+    metadata:
+      labels:
+        app: redis-write
+        tier: cache
+        redis-type: write
+    spec:
+      containers:
+        - name: redis
+          image: redis:8.0.2-alpine3.21
+          ports:
+            - containerPort: 6379
+              name: redis
+          command:
+            - redis-server
+            - --notify-keyspace-events
+            - Ex
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      nodeSelector:
+        cluster-type: data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-write-service
+  namespace: data-services
+  labels:
+    app: redis-write
+  annotations:
+    cloud.google.com/load-balancer-type: 'Internal'
+spec:
+  selector:
+    app: redis-write
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  type: LoadBalancer
+---
+# Redis Queue Service (for BullMQ)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-queue
+  namespace: data-services
+  labels:
+    app: redis-queue
+    tier: queue
+    redis-type: queue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-queue
+  template:
+    metadata:
+      labels:
+        app: redis-queue
+        tier: queue
+        redis-type: queue
+    spec:
+      containers:
+        - name: redis
+          image: redis:8.0.2-alpine3.21
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      nodeSelector:
+        cluster-type: data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-queue-service
+  namespace: data-services
+  labels:
+    app: redis-queue
+  annotations:
+    cloud.google.com/load-balancer-type: 'Internal'
+spec:
+  selector:
+    app: redis-queue
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  type: LoadBalancer

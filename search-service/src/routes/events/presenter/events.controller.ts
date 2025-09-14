@@ -11,7 +11,7 @@ import { ApiResponse, ApiTags } from '@nestjs/swagger';
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
-  @Get('search')
+  @Get('')
   @ApiResponse({ status: 200, description: 'Search events successfully', type: PaginatedEventResponseDto })
   async searchEvents(@Query() searchDto: FindEventsDto): Promise<PaginatedEventResponseDto> {
     return this.eventsService.searchEvents(searchDto);
