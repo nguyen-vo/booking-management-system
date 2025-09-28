@@ -4,6 +4,8 @@ import { EventResponseDto, PaginatedEventResponseDto } from '../presenter/dto/ev
 import { QueryBus } from '@nestjs/cqrs';
 import { FindAllEventsQuery } from './queries/find-all-events/find-all-events.query';
 import { FindAnEventQuery } from './queries/find-an-event/find-an-event.query';
+import { FindTicketsQuery } from './queries/find-tickets/find-tickets.query';
+import { FindTicketResponseDto } from '../presenter/dto/find-ticket-response.dto';
 
 @Injectable()
 export class EventsService {
@@ -25,5 +27,11 @@ export class EventsService {
 
   async findEventById(eventId: string): Promise<EventResponseDto> {
     return this.queryBus.execute(new FindAnEventQuery(eventId));
+  }
+
+  async findEventTickets(eventId: string, query: { limit?: number; offset: number }): Promise<FindTicketResponseDto> {
+    const limit = query.limit ?? 10;
+
+    return this.queryBus.execute(new FindTicketsQuery(eventId, limit, query.offset));
   }
 }

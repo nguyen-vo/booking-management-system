@@ -12,6 +12,7 @@ WORKDIR /usr/src/app
 RUN apk add --no-cache postgresql-client
 COPY --from=Build /usr/src/app/node_modules ./node_modules
 COPY --from=Build /usr/src/app/dist ./dist
+COPY --from=Build /usr/src/app/tsconfig.json ./tsconfig.json
 COPY package*.json ./
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
