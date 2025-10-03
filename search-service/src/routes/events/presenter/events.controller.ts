@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, ValidationPipe, UsePipes } from '@nestjs/common';
+import { Controller, Get, Query, Param, ValidationPipe, UsePipes, Headers } from '@nestjs/common';
 import { EventsService } from '../application/events.service';
 import { FindEventsDto } from './dto/find-events.dto';
 import { EventResponseDto, PaginatedEventResponseDto } from './dto/event-response.dto';
@@ -14,8 +14,12 @@ export class EventsController {
 
   @Get('')
   @ApiResponse({ status: 200, description: 'Search events successfully', type: PaginatedEventResponseDto })
-  async searchEvents(@Query() searchDto: FindEventsDto): Promise<PaginatedEventResponseDto> {
-    return this.eventsService.searchEvents(searchDto);
+  async searchEvents(
+    @Query() searchDto: FindEventsDto,
+    @Headers('x-use-elasticsearch') useElasticsearch: boolean,
+  ): Promise<PaginatedEventResponseDto> {
+    useElasticsearch = Boolean(useElasticsearch);
+    return this.eventsService.searchEvents(searchDto, useElasticsearch);
   }
 
   @Get(':id')

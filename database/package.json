@@ -7,11 +7,13 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed": "tsx index.ts"
+    "seed": "tsx index.ts",
+    "test-es": "tsx elasticsearch.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@elastic/elasticsearch": "^9.1.1",
     "@faker-js/faker": "^9.9.0",
     "pg": "^8.16.0",
     "tsx": "^4.20.3",

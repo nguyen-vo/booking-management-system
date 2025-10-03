@@ -1,4 +1,4 @@
-
+name: ticket-booking
 services:
   postgres_db:
     image: postgres:15-alpine
@@ -31,7 +31,7 @@ services:
       redis_read_service:
         condition: service_healthy
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=local
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_USERNAME=postgres
@@ -39,6 +39,8 @@ services:
       - DB_NAME=ticket_booking
       - REDIS_HOST=redis_read_service
       - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://es-local-dev:9200
+      - ELASTICSEARCH_API_KEY=RURnRG1Ka0JpSFNYNUFsd2d0NVc6TkluNTEzR2xTdWdyODdCRVNKSW14dw==
     volumes:
       - ./search-service:/app
       - /app/node_modules
@@ -63,7 +65,7 @@ services:
       redis_write_service:
         condition: service_healthy
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=local
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_USERNAME=postgres
@@ -112,12 +114,15 @@ services:
   seeder:
     build: ./database
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=local
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_USERNAME=postgres
       - DB_PASSWORD=password
       - DB_NAME=ticket_booking
+
+      - ELASTICSEARCH_NODE=http://es-local-dev:9200
+      - ELASTICSEARCH_API_KEY=RURnRG1Ka0JpSFNYNUFsd2d0NVc6TkluNTEzR2xTdWdyODdCRVNKSW14dw==
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -130,4 +135,4 @@ services:
       - ticket_booking_network
 networks:
   ticket_booking_network:
-    driver: bridge
+    external: true

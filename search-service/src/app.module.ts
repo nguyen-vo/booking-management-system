@@ -7,6 +7,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { DatabaseModule } from './core/database/database.module';
 import { getRedisStore } from './core/modules/redis-cache.setting';
 import { CacheModule } from '@nestjs/cache-manager';
+import { SearchModule as ElasticsearchModule } from './core/elasticsearch/elasticsearch.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
     DatabaseModule.forRoot(),
     CqrsModule.forRoot(),
+    ElasticsearchModule,
     EventsModule,
     CacheModule.registerAsync({
       isGlobal: true,

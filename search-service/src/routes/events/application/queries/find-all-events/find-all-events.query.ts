@@ -7,5 +7,6 @@ export class FindAllEventsQuery {
     public readonly status?: string,
     public readonly page: number = 1,
     public readonly limit: number = 10,
+    public readonly useElasticsearch: boolean = false,
   ) {}
 }

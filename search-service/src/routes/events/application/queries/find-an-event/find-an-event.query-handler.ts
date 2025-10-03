@@ -25,10 +25,13 @@ export class FindAnEventQueryHandler implements IQueryHandler<FindAnEventQuery, 
       location: {
         locationId: event.location.locationId,
         name: event.location.name,
+        address: event.location.address,
+        seatCapacity: event.location.seatCapacity,
       },
       performers: event.performers.map((performer) => ({
         performerId: performer.performerId,
         name: performer.name,
+        description: performer.description,
       })),
     };
   }

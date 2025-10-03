@@ -11,7 +11,7 @@ import { FindTicketResponseDto } from '../presenter/dto/find-ticket-response.dto
 export class EventsService {
   constructor(private readonly queryBus: QueryBus) {}
 
-  async searchEvents(searchDto: FindEventsDto): Promise<PaginatedEventResponseDto> {
+  async searchEvents(searchDto: FindEventsDto, useElasticsearch: boolean): Promise<PaginatedEventResponseDto> {
     return this.queryBus.execute(
       new FindAllEventsQuery(
         searchDto.name,
@@ -21,6 +21,7 @@ export class EventsService {
         searchDto.status,
         searchDto.page,
         searchDto.limit,
+        useElasticsearch,
       ),
     );
   }

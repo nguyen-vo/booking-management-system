@@ -30,12 +30,10 @@ spec:
         app: elasticsearch
         tier: search
     spec:
-      # Add security context for proper permissions
       securityContext:
         fsGroup: 1000
         runAsUser: 1000
         runAsGroup: 1000
-      # Add init container to fix permissions
       initContainers:
         - name: fix-permissions
           image: busybox:1.35
@@ -48,7 +46,6 @@ spec:
       containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-          # Add security context for the container
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
@@ -61,13 +58,26 @@ spec:
           env:
             - name: discovery.type
               value: 'single-node'
+            - name: ELASTIC_PASSWORD
+              value: 'mfAXVOgm'
             - name: ES_JAVA_OPTS
-              value: '-Xms512m -Xmx512m'
+              value: '-Xms128m -Xmx2g'
             - name: xpack.security.enabled
+              value: 'true'
+            - name: xpack.security.http.ssl.enabled 
               value: 'false'
+            - name: xpack.license.self_generated.type
+              value: 'trial'
+            - name: xpack.ml.use_auto_machine_memory_percent
+              value: 'true'
             - name: xpack.security.enrollment.enabled
               value: 'false'
-            # for better single-node configuration
+            - name: cluster.routing.allocation.disk.watermark.low
+              value: '1g'
+            - name: cluster.routing.allocation.disk.watermark.high
+              value: '1g'
+            - name: cluster.routing.allocation.disk.watermark.flood_stage
+              value: '1g'
             - name: bootstrap.memory_lock
               value: 'false'
             - name: network.host
@@ -83,9 +93,11 @@ spec:
               cpu: 1000m
               memory: 2Gi
           livenessProbe:
-            httpGet:
-              path: /_cluster/health
-              port: 9200
+            command:
+              - sh
+              - -c
+              - >
+                curl --output /dev/null --silent --head --fail -u elastic:mfAXVOgm http://elasticsearch:9200 
             initialDelaySeconds: 120
             periodSeconds: 30
             timeoutSeconds: 10

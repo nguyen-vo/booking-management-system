@@ -5,6 +5,12 @@ class LocationDto {
 
   @ApiProperty({ type: String, description: 'Name of the location', required: true })
   name: string;
+
+  @ApiProperty({ type: String, description: 'Address of the location', required: true })
+  address: string;
+
+  @ApiProperty({ type: Number, description: 'Seating capacity of the location', required: true })
+  seatCapacity: number;
 }
 
 class PerformerDto {
@@ -13,6 +19,9 @@ class PerformerDto {
 
   @ApiProperty({ type: String, description: 'Name of the performer', required: true })
   name: string;
+
+  @ApiProperty({ type: String, description: 'Description of the performer', required: true })
+  description: string;
 }
 export class EventResponseDto {
   @ApiProperty({ type: String, format: 'uuid', description: 'Unique identifier for the event', required: true })

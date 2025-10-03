@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { DataSource } from 'typeorm';
 import { faker } from '@faker-js/faker';
+import { Event, seedElasticSearch } from 'elasticsearch';
 
 const dataSource = new DataSource({
   type: 'postgres',
@@ -11,7 +12,6 @@ const dataSource = new DataSource({
   database: process.env.DB_NAME || 'ticket_booking',
   synchronize: false,
 });
-
 async function createTables() {
   await dataSource.query(`
     CREATE TABLE IF NOT EXISTS locations (
@@ -96,26 +96,21 @@ async function createTables() {
   `);
 }
 
-async function checkDataExists() {
-  try {
-    const result = await dataSource.query<Array<{ eventId }>>(
-      `SELECT * FROM events LIMIT 1`,
-    );
-    const count = result.length;
-    if (count > 0) {
-      console.log('Data already exists in the database. Exiting...');
-      return true;
-    }
-    console.log('No data found in the database. Proceeding with seeding...');
-    return false;
-  } catch (error) {
-    const e = error as Error;
-    if (e.name === 'EntityMetadataNotFoundError') {
-      console.log('No data found in the database. Proceeding with seeding...');
-      return false;
-    }
-    throw e;
+async function getAllEvents() {
+  const events = await dataSource.query<Array<Event>>(`
+    SELECT e."eventId", e.name as eventName, e.date, e.description, e.type, e.status,
+       l."locationId", l.name as "locationName", l.address as "locationAddress", l."seatCapacity" as "locationSeatCapacity",
+       p."performerId", p.name as "performerName", p.description as "performerDescription",
+       (SELECT COUNT("ticketId")  FROM tickets WHERE tickets."eventId" = e."eventId" AND tickets.status = 'Available') as "ticketsAvailable"
+       FROM events e
+        LEFT JOIN locations l ON e."locationId" = l."locationId"
+        LEFT JOIN event_performers ep ON e."eventId" = ep."eventId"
+        LEFT JOIN performers p ON ep."performerId" = p."performerId"
+    `);
+  if (events.length === 0) {
+    throw new Error('No events found to index');
   }
+  return events;
 }
 async function seed() {
   try {
@@ -205,6 +200,9 @@ async function seed() {
       `);
     }
     console.log('Database seeded successfully!');
+    const events = await getAllEvents();
+    await seedElasticSearch(events);
+    console.log('Elasticsearch seeded successfully!');
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {
