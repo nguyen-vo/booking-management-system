@@ -3,10 +3,10 @@ import { ConfirmReservationCommand } from './confirm-reservation.command';
 import { TicketRepository } from '../../ports/ticket.repository';
 import { ConfirmReservationRepository } from '../../ports/confirm-reservation.repository';
 import { ReservationExpiredException } from '../../exceptions/reservation-expired.exception';
-import { Inject, InternalServerErrorException, Logger } from '@nestjs/common';
-import { ClientKafka } from '@nestjs/microservices';
+import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { EventRepository } from '../../ports/event.repository';
 import { Reservation } from 'src/routes/booking/domain/reservation.entity';
+import { BookedEventPublisher } from '../../ports/booked-event.publisher';
 
 @CommandHandler(ConfirmReservationCommand)
 export class ConfirmReservationCommandHandler implements ICommandHandler<ConfirmReservationCommand> {
@@ -14,15 +14,15 @@ export class ConfirmReservationCommandHandler implements ICommandHandler<Confirm
     private readonly ticketRepository: TicketRepository,
     private readonly confirmReservationRepository: ConfirmReservationRepository,
     private readonly eventRepository: EventRepository,
-    @Inject('BOOKING_SERVICE') private readonly kafkaClient: ClientKafka,
+    private readonly publisher: BookedEventPublisher,
   ) {}
   async execute(command: ConfirmReservationCommand) {
     const { reservationId } = command;
-    const booking = await this.confirmReservationRepository.getReservation(reservationId);
-    if (!booking) {
+    const reservation = await this.confirmReservationRepository.getReservation(reservationId);
+    if (!reservation) {
       await this.handleExpiredReservation(reservationId);
     }
-    const { userId, ticketIds } = booking as Reservation;
+    const { userId, ticketIds } = reservation as Reservation;
     return this.handleConfirmedReservation(userId, reservationId, ticketIds);
   }
 
@@ -39,27 +39,16 @@ export class ConfirmReservationCommandHandler implements ICommandHandler<Confirm
       throw new InternalServerErrorException('Failed to confirm reservation');
     }
     const reservation = await this.confirmReservationRepository.getBookingById(reservationId);
-    await this.signalDequeue(ticketIds[0]);
+
+    await this.signalDequeue(ticketIds[0], userId);
 
     return reservation;
   }
 
-  private async signalDequeue(ticketId: string) {
+  private async signalDequeue(ticketId: string, userId: string) {
     const event = await this.eventRepository.getEventIdByTicketId(ticketId);
-    console.log(event);
     if (event && event?.isPopular) {
-      try {
-        this.kafkaClient.emit('reservation_confirmed', {
-          key: event.eventId,
-          value: {
-            eventId: event.eventId,
-            timestamp: new Date().toISOString(),
-          },
-        });
-        Logger.log(`Published event for eventId: ${event.eventId}`);
-      } catch (error) {
-        Logger.error(`Kafka publish error for eventId: ${event.eventId}`, error);
-      }
+      await this.publisher.publish(userId, event.eventId);
     } else {
       Logger.warn(
         `Event with id "${event?.eventId}" is ${event?.isPopular ? 'popular' : 'not popular'}, skipping signal dequeue.`,

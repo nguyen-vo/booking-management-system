@@ -14,15 +14,19 @@ import { UpdateBookingRepository } from '../application/ports/update-booking.rep
 import { OrmUpdateReservationRepository } from './repositories/update-reservation.repository';
 import { EventRepository } from '../application/ports/event.repository';
 import { OrmEventRepository } from './repositories/event.repository';
+import { PubSubModule } from 'src/core/pubsub/pubsub.module';
+import { BookedEventPublisher } from '../application/ports/booked-event.publisher';
+import { PubSubBookingEventPublisher } from './publishers/pubsub-booking-event.publisher';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Ticket, Booking, User, Event])],
+  imports: [TypeOrmModule.forFeature([Ticket, Booking, User, Event]), PubSubModule],
   providers: [
     { provide: TicketRepository, useClass: CompositeTicketRepository },
     { provide: CreateReservationRepository, useClass: OrmCreateReservationRepository },
     { provide: ConfirmReservationRepository, useClass: OrmConfirmReservationRepository },
     { provide: UpdateBookingRepository, useClass: OrmUpdateReservationRepository },
     { provide: EventRepository, useClass: OrmEventRepository },
+    { provide: BookedEventPublisher, useClass: PubSubBookingEventPublisher },
   ],
   exports: [
     TicketRepository,
@@ -30,6 +34,7 @@ import { OrmEventRepository } from './repositories/event.repository';
     ConfirmReservationRepository,
     UpdateBookingRepository,
     EventRepository,
+    BookedEventPublisher,
   ],
 })
 export class OrmReservationModule {}

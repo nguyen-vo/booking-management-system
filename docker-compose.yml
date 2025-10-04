@@ -73,9 +73,12 @@ services:
       - DB_NAME=ticket_booking
       - REDIS_HOST=redis_write_service
       - REDIS_PORT=6379
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcloud-credentials.json
+      - PROJECT_ID=ticket-booking-471523
     volumes:
       - ./booking-management-service:/app
       - /app/node_modules
+      - /Users/nguyenvo/.config/gcloud/application_default_credentials.json:/app/credentials/gcloud-credentials.json:ro
     networks:
       - ticket_booking_network
     healthcheck:
