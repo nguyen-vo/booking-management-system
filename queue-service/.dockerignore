@@ -1,0 +1,65 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Credentials and secrets
+credentials/
+gcloud-credentials.json
+application_default_credentials.json
+
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+*.test.ts
+*.spec.ts
+test/
+tests/
+
+# Build
+dist
+build
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+docs/
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
