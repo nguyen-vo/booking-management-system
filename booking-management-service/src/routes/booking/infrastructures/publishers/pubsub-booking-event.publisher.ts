@@ -8,12 +8,12 @@ export class PubSubBookingEventPublisher extends BookedEventPublisher {
     super();
   }
 
-  async publish(userId: string, eventId: string): Promise<void> {
+  async publish(userId: string, eventId: string, eventType: string): Promise<void> {
     const topicName = this.topic;
     const data = Buffer.from(JSON.stringify({ userId, eventId }));
     const attributes = {
       eventId,
-      eventType: 'reservation-confirmed',
+      eventType,
       createdTime: new Date().toISOString(),
       publisher: 'booking-management-service',
     };

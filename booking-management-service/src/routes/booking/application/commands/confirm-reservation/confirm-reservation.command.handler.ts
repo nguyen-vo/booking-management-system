@@ -48,7 +48,8 @@ export class ConfirmReservationCommandHandler implements ICommandHandler<Confirm
   private async signalDequeue(ticketId: string, userId: string) {
     const event = await this.eventRepository.getEventIdByTicketId(ticketId);
     if (event && event?.isPopular) {
-      await this.publisher.publish(userId, event.eventId);
+      const eventType = 'reservation-confirmed';
+      await this.publisher.publish(userId, event.eventId, eventType);
     } else {
       Logger.warn(
         `Event with id "${event?.eventId}" is ${event?.isPopular ? 'popular' : 'not popular'}, skipping signal dequeue.`,
