@@ -15,12 +15,10 @@ import { Namespace, Socket } from 'socket.io';
 import { JoinQueueDto } from './dto/join-queue.dto';
 import { BookingQueueService } from './application/booking-queue.service';
 import { EnqueueUserCommand } from './application/commands/enqueue-user/enqueue-user.command';
-import { ofType, Saga } from '@nestjs/cqrs';
-import { map, Observable } from 'rxjs';
-import { DequeueUserEvent } from './application/events/dequeue-user.event';
 import { SubscriptionToken } from './constants';
 import { SubscriberProvider } from 'src/core/modules/pubsub-subscription/subscriber.provider';
 import { Message } from '@google-cloud/pubsub';
+import { EnqueueMessageBody } from './dto/enqueue-message.dto';
 
 @Injectable()
 @WebSocketGateway({ namespace: '/booking-queue', transports: ['websocket'] })
@@ -38,8 +36,16 @@ export class BookingQueueGateway implements OnGatewayDisconnect, OnGatewayConnec
     @Inject(SubscriptionToken) private readonly subscriber: SubscriberProvider,
   ) {}
 
+  @SubscribeMessage('join-queue')
+  async onJoinQueueEvent(@MessageBody() data: JoinQueueDto, @ConnectedSocket() client: Socket) {
+    return this.bookingQueueService.enqueueUser(new EnqueueUserCommand(data.userId, data.eventId), client);
+  }
+
   onModuleInit() {
-    this.subscriber.subscription.on('message', (message) => this._handleMessage(message));
+    this.bookingQueueService.namespace = this.namespace;
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    this.subscriber.subscription.on('message', (message: Message) => this.bookingQueueService.handleMessage(message));
+
     this.logger.log(
       `BookingQueueSubscriber initialized and listening for messages on ${this.subscriber.subscription.name}`,
     );
@@ -64,39 +70,5 @@ export class BookingQueueGateway implements OnGatewayDisconnect, OnGatewayConnec
   }
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
-  }
-
-  @SubscribeMessage('join-queue')
-  async onJoinQueueEvent(@MessageBody() data: JoinQueueDto, @ConnectedSocket() client: Socket) {
-    let position: number;
-    try {
-      await client.join(data.userId);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      client.data.userId = data.userId;
-      position = await this.bookingQueueService.enqueueUser(new EnqueueUserCommand(data.userId, data.eventId));
-      const body = { message: `You are in position ${position} in the queue.`, position, ...data };
-      this.logger.debug(`User ${data.userId} joined the queue for event ${data.eventId} at position ${position}`);
-      return { event: 'joined-queue', data: body };
-    } catch (error) {
-      this.logger.error('Error enqueuing user:', error);
-      return { event: 'error', data: { message: 'Failed to join the queue.' } };
-    }
-  }
-
-  private _handleMessage(message: Message) {
-    // Process the incoming message
-    this.logger.log('Received message:', message.data.toString());
-    message.ack();
-  }
-
-  @Saga()
-  removeUserFromQueue(events$: Observable<any>): Observable<any> {
-    return events$.pipe(
-      ofType(DequeueUserEvent),
-      map((event) => {
-        this.namespace.in(event.prevUserId).disconnectSockets(true);
-        this.logger.debug(`Closed sockets for the previous user in the queue ${event.prevUserId}`);
-      }),
-    );
   }
 }

@@ -5,6 +5,7 @@ import { RedisCacheService } from 'src/core/modules/redis-cache/redis-cache.serv
 @Injectable()
 export class RedisQueueRepository implements QueueRepository {
   constructor(private readonly redis: RedisCacheService) {}
+
   async enqueueUser(userId: string, eventId: string): Promise<number> {
     const queueKey = this._getQueueKey(eventId);
     const score = Date.now();

@@ -19,6 +19,23 @@ export class RedisCacheService {
     if (result.length === 0) {
       return null;
     }
-    return result[0][0];
+    return result[0];
+  }
+
+  async add(key: string, value: string, ttlms = 7 * 24 * 60 * 60 * 1000): Promise<void> {
+    await this.redisProvider.client.set(key, value, 'PX', ttlms);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    const result = await this.redisProvider.client.exists(key);
+    return result === 1;
+  }
+
+  async update(key: string, value: string, ttlms = 7 * 24 * 60 * 60 * 1000): Promise<void> {
+    await this.redisProvider.client.set(key, value, 'PX', ttlms);
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.redisProvider.client.get(key);
   }
 }
