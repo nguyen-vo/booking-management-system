@@ -21,7 +21,14 @@ import { Message } from '@google-cloud/pubsub';
 import { EnqueueMessageBody } from './dto/enqueue-message.dto';
 
 @Injectable()
-@WebSocketGateway({ namespace: '/booking-queue', transports: ['websocket'] })
+@WebSocketGateway({
+  namespace: '/booking-queue',
+  transports: ['websocket'],
+  cors: {
+    origin: '*', // Or specify your client origin: 'http://localhost:3000'
+    credentials: true,
+  },
+})
 @UsePipes(
   new ValidationPipe({ whitelist: true, transform: true, exceptionFactory: (errors) => new WsException(errors) }),
 )

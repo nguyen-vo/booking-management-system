@@ -14,6 +14,14 @@ export class RedisCacheService {
     return rank !== null ? rank : null;
   }
 
+  async zpeek(key: string) {
+    const result = await this.redisProvider.client.zrange(key, 0, 0);
+    if (result.length === 0) {
+      return null;
+    }
+    return result[0];
+  }
+
   async zpopmin(key: string) {
     const result = await this.redisProvider.client.zpopmin(key, 1);
     if (result.length === 0) {

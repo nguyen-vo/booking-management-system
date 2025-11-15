@@ -25,15 +25,18 @@ export class DequeueUserCommandHandler {
         return transaction.status;
       }
       this.logger.log(`Handling DequeueUserCommand for event: ${eventId}`);
-      const nextUser = await this.queue.dequeueUser(eventId);
-      this.logger.log(`DequeueUserCommand executed for event: ${eventId}, next user: ${nextUser}`);
-      if (nextUser) {
-        this.logger.log(`Next user dequeued: ${nextUser} for event ${eventId}`);
+      const dequeueUser = await this.queue.dequeueUser(eventId);
+      const nextUser = await this.queue.nextUser(eventId);
+      this.logger.log(
+        `DequeueUserCommand executed for event: ${eventId}, dequeued user: ${dequeueUser}, next user: ${nextUser}`,
+      );
+      if (dequeueUser) {
+        this.logger.log(`User dequeued: ${dequeueUser} for event ${eventId}`);
       } else {
         this.logger.log(`No user in queue for event ${eventId}`);
       }
       await this.transactionGuard.markExecuted(idempotencyKey);
-      return nextUser;
+      return { dequeueUser, nextUser };
     } catch (e) {
       const error = e as Error;
       this.logger.error(`Error executing DequeueUserCommand for event ${eventId}: ${error.message}`, error);

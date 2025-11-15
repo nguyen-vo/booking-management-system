@@ -19,6 +19,6 @@ bash stop.sh
 
 # APIs
 
-Go to `http://localhost:3000/api/spec` to view the API documentation for the Search Service.
+Go to `http://localhost:3000/api/search/spec` to view the API documentation for the Search Service.
 
-Go to `http://localhost:3001/api/spec` to view the API documentation for the Booking Management Service.
+Go to `http://localhost:3001/api/booking/spec` to view the API documentation for the Booking Management Service.

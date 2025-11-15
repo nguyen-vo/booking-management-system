@@ -23,4 +23,10 @@ export class RedisQueueRepository implements QueueRepository {
     const nextUser = await this.redis.zpopmin(queueKey);
     return nextUser ? nextUser : null;
   }
+
+  async nextUser(eventId: string): Promise<string | null> {
+    const queueKey = this._getQueueKey(eventId);
+    const nextUser = await this.redis.zpeek(queueKey);
+    return nextUser;
+  }
 }

@@ -15,7 +15,7 @@ export class OrmEventRepository extends EventRepository {
       .innerJoin('event.tickets', 'ticket')
       .where('ticket.ticketId = :ticketId', { ticketId })
       .getOne();
-
+    console.log('OrmEventRepository.getEventIdByTicketId result:', result);
     return result;
   }
 }

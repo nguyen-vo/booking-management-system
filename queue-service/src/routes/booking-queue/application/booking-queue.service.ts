@@ -54,10 +54,11 @@ export class BookingQueueService {
     let userToDisconnect: string | null = null;
     try {
       if (eventType === 'reservation-confirmed' || eventType === 'reservation-expired') {
-        userToDisconnect = await this._handleDequeueUser(eventType, message.data);
+        const { dequeuedUser, nextUser } = await this._handleDequeueUser(eventType, message.data);
         message.ack();
+        userToDisconnect = dequeuedUser;
         this._disconnectClient(userToDisconnect);
-        this._updateQueuePositions(eventId);
+        this._updateQueuePositions(eventId, nextUser);
       }
     } catch (e) {
       const error = e as Error;
@@ -66,25 +67,40 @@ export class BookingQueueService {
     }
   }
 
-  private async _handleDequeueUser(eventType: string, data: Buffer<ArrayBufferLike>): Promise<string | null> {
-    const { eventId, prevUserId } = ReservationEvent.create(data.toString('utf-8'), eventType);
+  private async _handleDequeueUser(
+    eventType: string,
+    data: Buffer<ArrayBufferLike>,
+  ): Promise<{
+    dequeuedUser: string | null;
+    nextUser: string | null;
+  }> {
+    const reservationEvent = ReservationEvent.create(data.toString('utf-8'), eventType);
 
-    this.logger.log(`Received a message for eventType ${eventType}. Event id is ${eventId}`);
-    const dequeueCommand = new DequeueUserCommand(prevUserId, eventId, prevUserId);
-    const dequeuedUser = await this.commandBus.execute<DequeueUserCommand, string | null>(dequeueCommand);
+    this.logger.log(`Received a message for eventType ${eventType}. Event id is ${reservationEvent.eventId}`);
+    const dequeueCommand = new DequeueUserCommand(
+      reservationEvent.prevUserId,
+      reservationEvent.eventId,
+      reservationEvent.prevUserId,
+    );
+    const { dequeuedUser, nextUser } = await this.commandBus.execute<
+      DequeueUserCommand,
+      { dequeuedUser: string | null; nextUser: string | null }
+    >(dequeueCommand);
 
     if (dequeuedUser === TransactionStatuses.COMPLETED) {
-      return null;
+      return { dequeuedUser: null, nextUser };
     }
 
     if (dequeuedUser === null) {
-      this.logger.debug(`No user was dequeued for eventId ${eventId}. Previous user was ${prevUserId}`);
-      return null;
+      this.logger.debug(
+        `No user was dequeued for eventId ${reservationEvent.eventId}. Previous user was ${reservationEvent.prevUserId}`,
+      );
+      return { dequeuedUser: null, nextUser: null };
     }
     this.logger.debug(
-      `Processed message for eventType ${eventType} for eventId ${eventId}. The dequeued user is ${dequeuedUser}. Previous user was ${prevUserId}`,
+      `Processed message for eventType ${eventType} for eventId ${reservationEvent.eventId}. The dequeued user is ${dequeuedUser}. Previous user was ${reservationEvent.prevUserId}`,
     );
-    return prevUserId;
+    return { dequeuedUser: reservationEvent.prevUserId, nextUser };
   }
 
   private _disconnectClient(userId: string | null) {
@@ -95,10 +111,18 @@ export class BookingQueueService {
     this.logger.debug(`Closed sockets for user ${userId}`);
   }
 
-  private _updateQueuePositions(eventId: string) {
+  private _updateQueuePositions(eventId: string, nextUser: string | null) {
     this._namespace.in(eventId).emit('update-user-position', {
       message: `You are being moved up in the queue.`,
       movedBy: 1,
     });
+    if (nextUser) {
+      this._namespace.in(nextUser).emit('proceed-to-booking', {
+        message: `You are in position 1 in the queue.`,
+        position: 1,
+        eventId: eventId,
+        userId: nextUser,
+      });
+    }
   }
 }

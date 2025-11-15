@@ -15,6 +15,7 @@ export async function getRedisStore() {
       timeout: 5000,
       connectTimeout: 5000,
     },
+    password: process.env.REDIS_PASSWORD || undefined,
   });
 
   // Test the connection

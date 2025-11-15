@@ -12,6 +12,7 @@ export class RedisProvider implements OnModuleInit {
         host: process.env.REDIS_HOST ?? 'localhost',
         port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
         lazyConnect: true,
+        password: process.env.REDIS_PASSWORD || undefined,
         retryStrategy: (times) => {
           Logger.error(`Redis reconnect attempt #${times}`);
           const delayOneSecond = 1000;

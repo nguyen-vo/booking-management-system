@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Client as ESClient, HttpConnection } from '@elastic/elasticsearch';
-
+import dotenv from 'dotenv';
+dotenv.config();
 export interface Event {
   eventId: string;
   name: string;
@@ -88,6 +89,9 @@ async function bulkIndexEvents(events: Array<Event>) {
     if (!eventPerformers.has(event.eventId)) {
       eventPerformers.set(event.eventId, []);
     }
+    if (!event.performerId) {
+      continue;
+    }
     eventPerformers.get(event.eventId)?.push({
       performerId: event.performerId,
       name: event.performerName,
@@ -140,11 +144,15 @@ async function bulkIndexEvents(events: Array<Event>) {
 
 export async function seedElasticSearch(events: Array<Event>) {
   try {
+    console.log('Seeding Elasticsearch with events...');
     await esClient.ping();
     console.log('Elasticsearch cluster is up!');
-    const exist = await createEsIndex();
-    if (!exist) {
-      await bulkIndexEvents(events);
+    await createEsIndex();
+    const batches = 100;
+    for (let i = 0; i < events.length; i += batches) {
+      const batch = events.slice(i, i + batches);
+      await bulkIndexEvents(batch);
+      console.log(`Indexed batch ${i / batches + 1}`);
     }
   } catch (error) {
     console.error('Error seeding Elasticsearch:', error.message);

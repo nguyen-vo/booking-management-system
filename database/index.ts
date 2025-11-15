@@ -1,7 +1,10 @@
+/* eslint-disable no-useless-escape */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { DataSource } from 'typeorm';
 import { faker } from '@faker-js/faker';
 import { Event, seedElasticSearch } from 'elasticsearch';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const dataSource = new DataSource({
   type: 'postgres',
@@ -11,7 +14,14 @@ const dataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'ticket_booking',
   synchronize: false,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
+const numberOfEvents = parseInt(process.env.NUMBER_OF_EVENTS || '100');
+const numberOfTicketsPerEvent = parseInt(
+  process.env.NUMBER_OF_TICKETS_PER_EVENT || '100',
+);
 async function createTables() {
   await dataSource.query(`
     CREATE TABLE IF NOT EXISTS locations (
@@ -96,20 +106,54 @@ async function createTables() {
   `);
 }
 
-async function getAllEvents() {
-  const events = await dataSource.query<Array<Event>>(`
-    SELECT e."eventId", e.name as eventName, e.date, e.description, e.type, e.status,
-       l."locationId", l.name as "locationName", l.address as "locationAddress", l."seatCapacity" as "locationSeatCapacity",
-       p."performerId", p.name as "performerName", p.description as "performerDescription",
-       (SELECT COUNT("ticketId")  FROM tickets WHERE tickets."eventId" = e."eventId" AND tickets.status = 'Available') as "ticketsAvailable"
-       FROM events e
-        LEFT JOIN locations l ON e."locationId" = l."locationId"
-        LEFT JOIN event_performers ep ON e."eventId" = ep."eventId"
-        LEFT JOIN performers p ON ep."performerId" = p."performerId"
-    `);
-  if (events.length === 0) {
-    throw new Error('No events found to index');
-  }
+async function getAllEvents(page: number = 1, pageSize: number = 100) {
+  const offset = (page - 1) * pageSize;
+
+  const events = await dataSource.query<Array<Event>>(
+    `
+  WITH ticket_counts AS (
+      SELECT 
+        "eventId",
+        COUNT(*) FILTER (WHERE status = 'Available') as "ticketsAvailable"
+      FROM tickets
+      GROUP BY "eventId"
+    ),
+    event_performers_agg AS (
+      SELECT 
+        ep."eventId",
+        json_agg(json_build_object(
+          'performerId', p."performerId",
+          'performerName', p.name,
+          'performerDescription', p.description
+        )) as performers
+      FROM event_performers ep
+      JOIN performers p ON ep."performerId" = p."performerId"
+      GROUP BY ep."eventId"
+    )
+    SELECT 
+      e."eventId",
+      e.name as "eventName",
+      e.date,
+      e.description,
+      e.type,
+      e.status,
+      e."isPopular",
+      l."locationId",
+      l.name as "locationName",
+      l.address as "locationAddress",
+      l."seatCapacity" as "locationSeatCapacity",
+      COALESCE(tc."ticketsAvailable", 0)::int as "ticketsAvailable",
+      epa.performers
+    FROM events e
+    LEFT JOIN locations l ON e."locationId" = l."locationId"
+    LEFT JOIN ticket_counts tc ON e."eventId" = tc."eventId"
+    LEFT JOIN event_performers_agg epa ON e."eventId" = epa."eventId"
+    ORDER BY e."createdAt" DESC
+    LIMIT $1 OFFSET $2
+    `,
+    [pageSize, offset],
+  );
+
   return events;
 }
 async function seed() {
@@ -133,40 +177,85 @@ async function seed() {
       ('Red Rocks Amphitheatre', '11 W 53rd St, New York, NY 10019', 9525),
       ('Hollywood Bowl', '2301 Highland Ave, Los Angeles, CA 90068', 17500),
       ('Chicago Theatre', '175 N State St, Chicago, IL 60601', 3600),
-      ('Morrison Amphitheatre', '18300 W Alameda Pkwy, Morrison, CO 80465', 9525)
+      ('Morrison Amphitheatre', '18300 W Alameda Pkwy, Morrison, CO 80465', 9525),
+      ('Walt Disney Concert Hall', '111 S Grand Ave, Los Angeles, CA 90012', 2265),
+      ('The Forum', '3900 W Manchester Blvd, Inglewood, CA 90305', 17500),
+      ('Staples Center', '1111 S Figueroa St, Los Angeles, CA 90015', 21000),
+      ('State Farm Arena', '1 State Farm Dr, Atlanta, GA 30303', 21000),
+      ('Mercedes-Benz Stadium', '1 AMB Dr NW, Atlanta, GA 30313', 71000),
+      ('PNC Park', '115 Federal St, Pittsburgh, PA 15212', 38000),
+      ('Fenway Park', '4 Yawkey Way, Boston, MA 02215', 37755),
+      ('Wrigley Field', '1060 W Addison St, Chicago, IL 60613', 41649),
+      ('Yankee Stadium', '1 E 161st St, Bronx, NY 10451', 47309),
+      ${Array.from({ length: 100 })
+        .map(
+          () =>
+            `('${faker.location.city().replace(/'/g, ' ')} ${faker.helpers.arrayElement(['Stadium', 'Arena', 'Theatre'])}', '${faker.location.streetAddress().replace(/'/g, ' ')}, ${faker.location.city().replace(/'/g, ' ')}, ${faker.location.state().replace(/'/g, ' ')}, ${faker.location.zipCode().replace(/'/g, ' ')})', ${faker.number.int({ min: 5000, max: 80000 })})`,
+        )
+        .join(',')}
       RETURNING "locationId", name;
     `);
+    console.log('Locations seeded successfully.');
+    const performers = Array.from({ length: 50 }).map(() => ({
+      // eslint-disable-next-line no-useless-escape
+      name: faker.music.artist().replace(/'/g, ' '),
+      description: faker.lorem.words({ min: 10, max: 20 }),
+    }));
+
     const performerResult = await dataSource.query<
       Array<{ performerId: string }>
     >(`
       INSERT INTO performers (name, description) VALUES
       ('Taylor Swift', 'Grammy-winning pop and country music artist'),
       ('Ed Sheeran', 'British singer-songwriter and musician'),
-      ('Los Angeles Lakers', 'Professional NBA basketball team'),
-      ('Chicago Bulls', 'Professional NBA basketball team'),
-      ('Hamilton Cast', 'Broadway musical cast'),
-      ('The Lion King Cast', 'Broadway musical cast')
+      ${performers.map((p) => `('${p.name}', '${p.description}')`).join(',')}
       RETURNING "performerId", name;
     `);
+    console.log('Performers seeded successfully.');
+    const eventInfos = Array.from({ length: numberOfEvents }).map(() => {
+      return {
+        name:
+          faker.music.artist().replace(/'/g, ' ') +
+          ' - ' +
+          faker.helpers.arrayElement([
+            'Concert',
+            'Sports',
+            'Theater',
+            'Festival',
+          ]),
+        date: faker.date.future({ years: 1 }).toISOString(),
+        description: faker.lorem.text(),
+        type: faker.helpers.arrayElement([
+          'Concert',
+          'Sports',
+          'Theater',
+          'Festival',
+        ]),
+        status: 'Upcoming',
+        locationId: faker.helpers.arrayElement(locationResult).locationId,
+      };
+    });
     const eventResult = await dataSource.query<Array<{ eventId: string }>>(`
       INSERT INTO events (name, date, description, type, status, "locationId", "isPopular") VALUES
       ('Taylor Swift - Eras Tour', '${faker.date.future({ years: 1 }).toISOString()}', 'Experience the magic of Taylor Swift''s Eras Tour', 'Concert', 'Upcoming', '${locationResult[0].locationId}', true),
       ('Ed Sheeran Live', '${faker.date.future({ years: 1 }).toISOString()}', 'An intimate evening with Ed Sheeran', 'Concert', 'Upcoming', '${locationResult[1].locationId}', true),
-      ('Lakers vs Bulls', '${faker.date.future({ years: 1 }).toISOString()}', 'NBA regular season game', 'Sports', 'Upcoming', '${locationResult[0].locationId}', true),
-      ('Hamilton', '${faker.date.future({ years: 1 }).toISOString()}', 'The hit Broadway musical about Alexander Hamilton', 'Theater', 'Upcoming', '${locationResult[2].locationId}', false),
-      ('The Lion King', '${faker.date.future({ years: 1 }).toISOString()}', 'Disney''s award-winning musical', 'Theater', 'Upcoming', '${locationResult[2].locationId}', false),
-      ('Red Rocks Summer Concert', '${faker.date.future({ years: 1 }).toISOString()}', 'Independence Day celebration concert', 'Concert', 'Upcoming', '${locationResult[3].locationId}', false)
+      ${eventInfos.map((e) => `('${e.name}', '${e.date}', '${e.description}', '${e.type}', '${e.status}', '${e.locationId}', false)`).join(',')}
       RETURNING "eventId", name;
     `);
+    console.log('Events seeded successfully.');
     await dataSource.query(`
       INSERT INTO event_performers ("eventId", "performerId") VALUES
       ('${eventResult[0].eventId}', '${performerResult[0].performerId}'),
       ('${eventResult[1].eventId}', '${performerResult[1].performerId}'),
-      ('${eventResult[2].eventId}', '${performerResult[2].performerId}'),
-      ('${eventResult[2].eventId}', '${performerResult[3].performerId}'),
-      ('${eventResult[3].eventId}', '${performerResult[4].performerId}'),
-      ('${eventResult[4].eventId}', '${performerResult[5].performerId}')
+      ${eventResult
+        .slice(2)
+        .map(
+          (res) =>
+            `('${res.eventId}', '${faker.helpers.arrayElement(performerResult).performerId}')`,
+        )
+        .join(',')}
     `);
+    console.log('Event-Performers relationships seeded successfully.');
     const userValues = new Array(100)
       .fill(null)
       .map(
@@ -178,7 +267,7 @@ async function seed() {
       INSERT INTO users (username, email) VALUES ${userValues}
     `);
     for (const event of eventResult) {
-      const ticketCount = 10000;
+      const ticketCount = numberOfTicketsPerEvent;
       const ticketValues: Array<string> = [];
 
       for (let i = 1; i <= ticketCount; i++) {
@@ -187,9 +276,6 @@ async function seed() {
           faker.string.numeric({ allowLeadingZeros: true, length: 3 });
         const price = faker.number.float({ min: 20, max: 200 }).toFixed(2);
         const status = 'Available';
-        console.log(
-          `('${event.eventId}', '${seatNumber}', ${price}, '${status}')`,
-        );
         ticketValues.push(
           `('${event.eventId}', '${seatNumber}', ${price}, '${status}')`,
         );
@@ -200,8 +286,6 @@ async function seed() {
       `);
     }
     console.log('Database seeded successfully!');
-    const events = await getAllEvents();
-    await seedElasticSearch(events);
     console.log('Elasticsearch seeded successfully!');
   } catch (error) {
     console.error('Error seeding database:', error);
@@ -211,7 +295,6 @@ async function seed() {
 }
 
 async function dropAll() {
-  await dataSource.initialize();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return dataSource.query(`
     DROP TABLE IF EXISTS bookings CASCADE;
@@ -223,14 +306,57 @@ async function dropAll() {
     DROP TABLE IF EXISTS users CASCADE;
   `);
 }
+async function createIndexes() {
+  await dataSource.query(`
+    CREATE INDEX IF NOT EXISTS idx_tickets_eventid_status ON tickets("eventId", status);
+    CREATE INDEX IF NOT EXISTS idx_event_performers_eventid ON event_performers("eventId");
+    CREATE INDEX IF NOT EXISTS idx_events_createdate ON events("createdAt" DESC);
+  `);
+  console.log('Indexes created successfully.');
+}
+async function seedElastic() {
+  console.log('Seeding Elasticsearch from database...');
+  let page = 1;
+  const pageSize = 500;
+  while (true) {
+    const batch = await getAllEvents(page, pageSize);
+    if (batch.length === 0) {
+      break;
+    }
+    await seedElasticSearch(batch);
+    console.log(
+      `Seeded Elasticsearch with page ${page} (${batch.length} events)`,
+    );
+    page++;
+  }
+}
 
-dropAll()
-  .then(() => {
-    console.log('All tables dropped successfully');
-    seed().catch((error) => {
-      console.error('Error seeding database:', error);
-    });
-  })
-  .catch((error) => {
-    console.error('Error dropping tables:', error);
-  });
+async function main() {
+  console.log('Initializing database connection for main execution...');
+  await dataSource.initialize();
+  console.log('Database connection established for main execution...');
+  // await dropAll()
+  // console.log('All tables dropped successfully');
+  // await seed();
+  await createIndexes();
+  await seedElastic();
+}
+main().catch((error) => {
+  console.error('Error in main execution:', error);
+});
+
+// dropAll()
+// .then(() => {
+//   console.log('All tables dropped successfully');
+//   seed().catch((error) => {
+//     console.error('Error seeding database:', error);
+//   });
+// })
+// .then(() =>
+//   seedElastic().catch((error) => {
+//     console.error('Error seeding Elasticsearch:', error);
+//   }),
+// )
+// .catch((error) => {
+//   console.error('Error dropping tables:', error);
+// });

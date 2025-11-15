@@ -2,10 +2,10 @@ import { PubSub } from '@google-cloud/pubsub';
 
 const client = new PubSub({ projectId: 'ticket-booking-471523' });
 const topicName = 'projects/ticket-booking-471523/topics/reservation-confirmed';
-const eventId = '68e31f94-9d60-4783-8fda-ce9b4afc1a67';
+const eventId = 'd5064abd-b1ba-487c-81a2-4272ca1ed6ef';
 
 async function testConfirmed() {
-  const userId = '71a0bde2-ca1f-4f61-a536-da485e0d98bd';
+  const userId = 'de1f6a17-a4ea-4583-86f0-f321c6e43180';
   const attributes = {
     eventId: eventId,
     eventType: 'reservation-confirmed',
@@ -36,5 +36,5 @@ async function testExpired() {
   });
 }
 
-// testConfirmed().catch(console.error);
-testExpired().catch(console.error);
+testConfirmed().catch(console.error);
+// testExpired().catch(console.error);

@@ -7,6 +7,7 @@ export async function getRedisStore() {
   const redisUrl = `redis://${redisHost}:${redisPort}`;
   const keyv = createKeyv({
     url: redisUrl,
+    password: process.env.REDIS_PASSWORD || undefined,
     socket: {
       reconnectStrategy: (retries, cause) => {
         Logger.error(`Redis reconnect error: ${cause.message}`);

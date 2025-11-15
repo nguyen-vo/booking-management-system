@@ -87,6 +87,35 @@ services:
       timeout: 30s
       retries: 3
     command: npm run start:dev
+  queue_service: 
+    build:
+      context: ./queue-service
+      dockerfile: Dockerfile.Dev
+    container_name: queue-service
+    ports:
+      - 3002:3000
+    depends_on:
+      redis_write_service:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=local
+      - REDIS_HOST=redis_write_service
+      - REDIS_PORT=6379
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcloud-credentials.json
+      - PROJECT_ID=ticket-booking-471523
+      - BIND_ADDRESS=0.0.0.0
+    volumes:
+      - ./queue-service:/app
+      - /app/node_modules
+      - /Users/nguyenvo/.config/gcloud/application_default_credentials.json:/app/credentials/gcloud-credentials.json:ro
+    networks:
+      - ticket_booking_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/queue/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+    command: npm run start:dev
   redis_read_service:
     image: redis:8.0.2-alpine3.21
     container_name: redis_read_service
